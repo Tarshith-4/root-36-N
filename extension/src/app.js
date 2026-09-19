@@ -1,9 +1,26 @@
-import { BehaviorTracker } from './collector/tracker.js'; import { calculateConfidenceScore } from './engine/classifier.js'; import { EnrollmentFlow } from './ui/enrollment.js'; import { Dashboard } from './ui/dashboard.js';
-const $=s=>document.querySelector(s),profileKey='bioprint_profile';const dashboard=new Dashboard();const show=id=>['welcome','enrollment','login'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id));
-function profile(){try{return JSON.parse(localStorage.getItem(profileKey))}catch{return null}} function setPill(){const p=profile();$('#profilePill').textContent=p?'Profile enrolled · Local only':'Profile not enrolled'}
-const flow=new EnrollmentFlow({input:$('#enrollInput'),next:$('#enrollNext'),step:$('#stepLabel'),progress:$('#progressBar'),onComplete:p=>{localStorage.setItem(profileKey,JSON.stringify(p));setPill();enterLogin();dashboard.reset();}});
-$('#startEnrollment').onclick=()=>{show('enrollment');flow.begin()}; $('#resetProfile').onclick=()=>{localStorage.removeItem(profileKey);setPill();show('welcome')};
-function liveTracker(){return new BehaviorTracker({inputs:[$('#email'),$('#password')],motionTarget:document,submitTarget:$('#loginButton')}).start()} let tracker;
-function enterLogin(){show('login');tracker?.stop();tracker=liveTracker()} if(profile())enterLogin(); else show('welcome');setPill();
-$('#loginForm').addEventListener('submit',e=>{e.preventDefault();const result=calculateConfidenceScore(tracker.getFeatureVector(),profile());tracker.stop();dashboard.render(result);setTimeout(()=>{tracker=liveTracker()},100)});
-$('#botSimulator').onclick=()=>{tracker?.stop();dashboard.render({score:0,authenticated:false,bot:true,reason:'Synthetic event pattern injected by the demo simulator.',signals:[]});tracker=liveTracker()};
+import { BehaviorTracker } from './collector/tracker.js';
+import { calculateConfidenceScore, updateAdaptiveProfile } from './engine/classifier.js';
+import { EnrollmentFlow } from './ui/enrollment.js';
+import { Dashboard } from './ui/dashboard.js';
+
+const $=s=>document.querySelector(s); const profileKey='bioprint_profile'; const trialKey='bioprint_trials'; const dashboard=new Dashboard();
+const show=id=>['welcome','enrollment','login'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id));
+const storage=chrome.storage.local;
+async function profile(){return new Promise(r=>storage.get(profileKey,x=>r(x[profileKey]||null)))}
+async function setProfile(p){return new Promise(r=>storage.set({[profileKey]:p},r))}
+async function trials(){return new Promise(r=>storage.get(trialKey,x=>r(x[trialKey]||{genuine:0,impostor:0,falseAccepts:0,falseRejects:0})))}
+async function saveTrials(t){await new Promise(r=>storage.set({[trialKey]:t},r));renderTrials()}
+async function setPill(){const p=await profile();$('#profilePill').textContent=p?`Extension profile · ${p.sampleCount} samples`:'Profile not enrolled'}
+async function renderTrials(){const t=await trials();$('#genuineCount').textContent=t.genuine;$('#impostorCount').textContent=t.impostor;$('#falseAcceptCount').textContent=t.falseAccepts;$('#falseRejectCount').textContent=t.falseRejects;$('#farValue').textContent=t.impostor?`${(t.falseAccepts/t.impostor*100).toFixed(1)}%`:'--';$('#frrValue').textContent=t.genuine?`${(t.falseRejects/t.genuine*100).toFixed(1)}%`:'--'}
+const flow=new EnrollmentFlow({input:$('#enrollInput'),next:$('#enrollNext'),step:$('#stepLabel'),progress:$('#progressBar'),onComplete:async p=>{await setProfile(p);await setPill();enterLogin();dashboard.reset()}});
+$('#startEnrollment').onclick=()=>{show('enrollment');flow.begin()};
+$('#resetProfile').onclick=async()=>{await new Promise(r=>storage.remove([profileKey,trialKey],r));await setPill();await renderTrials();show('welcome')};
+function liveTracker(){return new BehaviorTracker({inputs:[$('#email'),$('#password')],motionTarget:document,submitTarget:$('#loginButton')}).start()}
+let tracker;
+async function enterLogin(){show('login');tracker?.stop();tracker=liveTracker();await renderTrials()}
+(async()=>{if(await profile()) await enterLogin(); else show('welcome');await setPill();await renderTrials()})();
+$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const p=await profile();const live=tracker.getFeatureVector();const result=calculateConfidenceScore(live,p);tracker.stop();dashboard.render(result);if(result.authenticated&&!result.bot)await setProfile(updateAdaptiveProfile(p,live));setTimeout(()=>{tracker=liveTracker();setPill()},100)});
+$('#botSimulator').onclick=()=>{tracker?.stop();dashboard.render({score:0,authenticated:false,bot:true,reason:'Synthetic event pattern injected by the demo simulator.',signals:[],distance:Infinity,latencyMs:0});tracker=liveTracker()};
+$('#recordGenuine').onclick=async()=>{const p=await profile();if(!p)return;const r=calculateConfidenceScore(tracker.getFeatureVector(),p);const t=await trials();t.genuine++;if(!r.authenticated)t.falseRejects++;await saveTrials(t)};
+$('#recordImpostor').onclick=async()=>{const p=await profile();if(!p)return;const r=calculateConfidenceScore(tracker.getFeatureVector(),p);const t=await trials();t.impostor++;if(r.authenticated&&!r.bot)t.falseAccepts++;await saveTrials(t)};
+$('#clearTrials').onclick=()=>saveTrials({genuine:0,impostor:0,falseAccepts:0,falseRejects:0});
