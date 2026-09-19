@@ -1,30 +1,104 @@
 # BioPrint: Behavior-Based Login Security
 
-## Executive summary
+## 1. Executive summary
 
-Passwords prove knowledge, but they are weak against phishing, credential stuffing, and an attacker who has learned the secret. BioPrint is a browser-local second signal that asks whether a login *behaves* like the person who enrolled it. The project demonstrates a fast behavioral gate that runs without a biometric API, cloud model, or server round trip.
+BioPrint is a browser-local behavioral authentication layer for the BioPrint hackathon. It evaluates whether the person interacting with a login form behaves like the enrolled user, rather than relying only on the correctness of a password. Enrollment captures repeated natural interactions; authentication then combines six behavioral signals with an anti-automation gate. No OTP or secondary verification is used by the demo gate.
 
-## Behavioral signal taxonomy
+The current implementation uses a regularized **Mahalanobis distance** rather than independent per-feature Z-scores. This lets the fingerprint model correlations between behavioral signals while remaining lightweight enough for an instant browser-side decision.
 
-The collector measures keyboard dwell time (keydown to keyup), flight time (one key release to the next keydown), and the standard deviation of flight timing. It also measures pointer path curvature, peak motion velocity, focus transitions, and submit-button hold duration. The app never records the actual characters of a calibration phrase; it retains only aggregate timing and movement statistics in `localStorage`.
+## 2. Behavioral signals
 
-## Algorithmic architecture
+The six-dimensional fingerprint is:
 
-Enrollment contains three natural passes. For each signal, BioPrint stores a mean and standard deviation. At authentication, each live signal is normalized as a Z-score: `|live - mean| / (standard deviation + tolerance)`. A weighted composite anomaly is transformed into a 0-100 confidence score. Scores at or above 70 approve the demonstration login. The calculation is small fixed-size arithmetic and completes locally in well under the 10 ms target on typical hardware.
+1. Mean key dwell time
+2. Mean key flight time
+3. Mouse/pointer path curvature
+4. Maximum pointer velocity
+5. Focus-transition delay
+6. Submit-button click/hold duration
 
-Mahalanobis distance is the natural production evolution when more calibration samples are available: it can model correlation among signals (for example, between a fast typist and rapid pointer movement). The present Z-score engine is deliberately sample-efficient and transparent for a three-pass hackathon demo.
+Pointer Events are used so mouse and touch-capable pointer devices can share the same collection path. Raw characters are not stored; the collector retains aggregate timing and movement statistics.
 
-## Anti-bot and anti-replay safeguards
+## 3. Enrollment
 
-BioPrint blocks an attempt before profile matching when browser events are untrusted, when at least three flight times have near-zero variance, or when an observed mouse path is perfectly linear. The dashboard clearly reports the trigger so a judge can distinguish a bot block from a behavioral mismatch. These heuristics are defense-in-depth indicators, not proof that an attacker is automated.
+The demo uses **five natural calibration passes**. Each pass must contain enough keystrokes to estimate timing behavior. The samples are combined into a mean vector and a 6×6 covariance matrix.
 
-## Privacy, security, and limitations
+Using several passes is important because a covariance matrix cannot meaningfully describe six dimensions from a single observation. Because the hackathon enrollment set is still small, the covariance matrix is regularized before inversion.
 
-All enrollment and matching occur on-device; raw interaction event streams are discarded after aggregation. This reduces transmission and central storage risk. A production system should pair this technique with password/MFA, rate limiting, secure profile storage, consent and deletion controls, accessibility accommodations, monitoring for false rejects, and careful bias testing. Behavioral authentication should be an adaptive risk signal, not the sole factor for high-risk access.
+## 4. Authentication algorithm
 
-## Judge demo flow
+For live vector `x`, enrolled mean `μ`, and covariance `Σ`, the Mahalanobis distance is:
 
-1. Enroll with three natural passes of the phrase.
-2. Authenticate naturally to show a green local decision and signal list.
-3. Re-enroll or have a teammate type differently to show a red mismatch.
-4. Select the bot simulator to show an orange pre-classification block.
+`D_M(x) = sqrt((x-μ)^T Σ^-1 (x-μ))`
+
+The implementation adds a small diagonal regularization term before inversion. This prevents numerical failure when enrollment samples are highly correlated or the sample count is small.
+
+The distance is converted to a 0–100 confidence score. The demonstration acceptance threshold is **70**. The dashboard also exposes the distance, latency, and individual feature deviations so the decision is explainable.
+
+## 5. Bot and replay resistance
+
+Behavioral matching is preceded by a separate anti-automation layer. It checks:
+
+- `event.isTrusted` for synthetic/untrusted browser events;
+- near-zero flight-time variance;
+- unusually low timing entropy;
+- low novelty in adjacent key-timing transitions;
+- near-perfectly linear pointer trajectories;
+- suspiciously uniform pointer velocity.
+
+This improves resilience against scripts that add small random jitter rather than producing completely identical timings. These heuristics are defense-in-depth signals and should not be interpreted as a formal bot-proof guarantee.
+
+## 6. Adaptive baseline
+
+Accepted, non-bot logins update the enrolled mean and covariance using an online update. Rejected and bot attempts never update the profile. This lets the profile drift gradually with the genuine user's behavior while reducing the risk of an attacker poisoning the baseline through failed attempts.
+
+## 7. Chrome extension implementation
+
+The project includes a real Manifest V3 extension. `manifest.json` registers `content.js` as a `content_script` for HTTP/HTTPS pages. The content script looks for login forms marked with `data-bioprint-login`, captures the live interaction, reads the locally enrolled profile from `chrome.storage.local`, and blocks or releases the form submission based on the behavioral result.
+
+The included dummy login page is therefore also a concrete extension test target rather than only a popup simulation.
+
+## 8. Reliability evaluation
+
+The demo contains a Reliability Lab that records actual labeled trials and computes:
+
+`FAR = false accepts / impostor attempts`
+
+`FRR = false rejects / genuine attempts`
+
+The repository intentionally does **not** report invented human-test numbers. For the final hackathon evidence, the recommended protocol is at least 10 genuine trials and 10 impostor trials across multiple sessions, with the genuine user typing naturally and impostors deliberately using a different rhythm. Bot trials should be reported separately because automated traffic is a distinct fraud class.
+
+Automated self-tests verify that the Mahalanobis engine can accept a representative same-profile vector, reject a deliberately distant vector, and flag a synthetic low-variance timing pattern. These tests are software checks, not human reliability measurements.
+
+## 9. Latency and privacy
+
+All matching occurs locally in JavaScript. The computation is fixed-size matrix arithmetic, so the authentication decision is intended to feel instantaneous. The dashboard records the measured decision latency for each attempt.
+
+Raw interaction events are not transmitted to a backend. The local profile is the only persistent behavioral representation in the demo. Production deployment would require secure profile storage, consent and deletion controls, rate limiting, accessibility accommodations, and careful privacy review.
+
+## 10. Limitations & future work
+
+### Adversarial behavioral imitation
+A determined attacker can observe or learn aspects of a user's interaction style. Future work should evaluate active imitation attacks and stronger sequence models.
+
+### Bot evasion
+The current anti-bot layer is intentionally lightweight. Attackers can attempt to imitate human variance, pointer curvature, and timing distributions. A larger dataset could support a trained sequence model over dwell/flight ratios and pointer trajectories.
+
+### Cross-device generalization
+Typing and pointer behavior changes with keyboard layout, device, touchpad, mouse sensitivity, and physical context. Future work should investigate device-conditioned profiles or multi-device enrollment.
+
+### Small-sample covariance
+Five enrollment passes are enough for a hackathon demonstration but are not a statistically complete representation of a six-dimensional behavioral distribution. More longitudinal samples would improve covariance estimation and threshold calibration.
+
+### Accessibility and drift
+Users with assistive technologies or changing physical conditions may exhibit different patterns. A production system should include accessibility-aware policies and safe re-enrollment/adaptation mechanisms.
+
+## 11. Demo flow
+
+1. Enroll one genuine user with five natural passes.
+2. Authenticate naturally and show **ACCESS GRANTED** plus the six-signal explanation.
+3. Have a teammate use the same credentials while deliberately changing typing/mouse behavior and show **ACCESS DENIED**.
+4. Run the bot simulator or a scripted attempt and show **BOT DETECTED**.
+5. Optionally show the Reliability Lab and the live FAR/FRR counters.
+
+BioPrint is presented as a behavioral-risk authentication demonstration, not as a standalone replacement for password security, MFA, rate limiting, or secure server-side authentication.

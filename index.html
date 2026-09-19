@@ -25,7 +25,7 @@
       </section>
 
       <section id="login" class="hidden layout">
-        <form id="loginForm" class="panel login-card">
+        <form id="loginForm" class="panel login-card" data-bioprint-login>
           <span class="eyebrow">LIVE AUTH GATE</span><h2>Welcome back</h2><p>Enter the demo credentials with your natural rhythm.</p>
           <label>Email<input id="email" type="email" value="demo@bioprint.local" autocomplete="username" /></label>
           <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="Enter your password" /></label>
@@ -38,6 +38,7 @@
           <div class="score-row"><div id="gauge" class="gauge" style="--score:0"><div><b id="score">--</b><small>CONFIDENCE</small></div></div><div id="decisionText" class="decision"><b>Ready to authenticate</b><p>BioPrint will compare your live behavior to the local profile.</p></div></div>
           <div class="metrics"><h3>Signal breakdown</h3><div id="metricList" class="metric-list"><p class="empty">Enroll and authenticate to see your signal analysis.</p></div></div>
           <div class="event-log"><h3>Explainability log</h3><ul id="explainLog"><li>Profile evaluation occurs locally. No behavioral data leaves this browser.</li></ul></div>
+          <div class="metrics eval-panel"><h3>Reliability lab</h3><p class="muted">Run repeated real trials and label each result. FAR/FRR are calculated from recorded genuine and impostor attempts; no numbers are fabricated.</p><div class="eval-grid"><span>Genuine <b id="genuineCount">0</b></span><span>Impostor <b id="impostorCount">0</b></span><span>False accepts <b id="falseAcceptCount">0</b></span><span>False rejects <b id="falseRejectCount">0</b></span><span>FAR <b id="farValue">--</b></span><span>FRR <b id="frrValue">--</b></span></div><div class="eval-actions"><button id="recordGenuine" class="secondary" type="button">Record as genuine</button><button id="recordImpostor" class="secondary" type="button">Record as impostor</button><button id="clearTrials" class="link" type="button">Clear trials</button></div></div>
         </section>
       </section>
     </main>
