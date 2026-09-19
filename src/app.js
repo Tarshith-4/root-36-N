@@ -18,11 +18,11 @@ const flow = new EnrollmentFlow({input:$('#enrollInput'),next:$('#enrollNext'),s
 $('#startEnrollment').onclick=()=>{show('enrollment');flow.begin()};
 $('#resetProfile').onclick=()=>{localStorage.removeItem(profileKey);localStorage.removeItem(trialKey);setPill();renderTrials();show('welcome')};
 function liveTracker(){return new BehaviorTracker({inputs:[$('#email'),$('#password')],motionTarget:document,submitTarget:$('#loginButton')}).start()}
-let tracker;
+let tracker; let lastResult = null;
 function enterLogin(){show('login');tracker?.stop();tracker=liveTracker();renderTrials()}
 if(profile()) enterLogin(); else show('welcome'); setPill(); renderTrials();
-$('#loginForm').addEventListener('submit',e=>{e.preventDefault();const p=profile();const live=tracker.getFeatureVector();const result=calculateConfidenceScore(live,p);tracker.stop();dashboard.render(result);if(result.authenticated&&!result.bot)setProfile(updateAdaptiveProfile(p,live));setTimeout(()=>{tracker=liveTracker();setPill()},100)});
+$('#loginForm').addEventListener('submit',e=>{e.preventDefault();const p=profile();const live=tracker.getFeatureVector();const result=calculateConfidenceScore(live,p);tracker.stop();lastResult=result;dashboard.render(result);if(result.authenticated&&!result.bot)setProfile(updateAdaptiveProfile(p,live));setTimeout(()=>{tracker=liveTracker();setPill()},100)});
 $('#botSimulator').onclick=()=>{tracker?.stop();dashboard.render({score:0,authenticated:false,bot:true,reason:'Synthetic event pattern injected by the demo simulator.',signals:[],distance:Infinity,latencyMs:0});tracker=liveTracker()};
-$('#recordGenuine').onclick=()=>{const p=profile();if(!p)return;const r=calculateConfidenceScore(tracker.getFeatureVector(),p);const t=trials();t.genuine++;if(!r.authenticated)t.falseRejects++;saveTrials(t)};
-$('#recordImpostor').onclick=()=>{const p=profile();if(!p)return;const r=calculateConfidenceScore(tracker.getFeatureVector(),p);const t=trials();t.impostor++;if(r.authenticated&&!r.bot)t.falseAccepts++;saveTrials(t)};
+$('#recordGenuine').onclick=()=>{const p=profile();if(!p||!lastResult)return;const r=lastResult;const t=trials();t.genuine++;if(!r.authenticated)t.falseRejects++;saveTrials(t)};
+$('#recordImpostor').onclick=()=>{const p=profile();if(!p||!lastResult)return;const r=lastResult;const t=trials();t.impostor++;if(r.authenticated&&!r.bot)t.falseAccepts++;saveTrials(t)};
 $('#clearTrials').onclick=()=>saveTrials({genuine:0,impostor:0,falseAccepts:0,falseRejects:0});
