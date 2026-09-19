@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BioPrint - Behavioral Login Security</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header><a class="brand" href="#">BIO<span>PRINT</span></a><p>Local behavioral authentication</p><span id="profilePill" class="pill">Profile not enrolled</span></header>
+    <main>
+      <section id="welcome" class="hero panel">
+        <div><span class="eyebrow">BEHAVIORAL BIOMETRICS</span><h1>Your rhythm is your second factor.</h1><p>BioPrint verifies a login using typing cadence, mouse movement, and interaction micro-behaviors. Your profile stays in this browser.</p><button id="startEnrollment" class="primary">Create my profile <span>→</span></button></div>
+        <div class="signal-orb"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><b>100%<small>ON DEVICE</small></b></div>
+      </section>
+
+      <section id="enrollment" class="panel hidden">
+        <div class="section-head"><div><span class="eyebrow">ENROLLMENT</span><h2>Build your behavioral profile</h2></div><span id="stepLabel" class="step-label">Pass 1 of 3</span></div>
+        <div class="progress"><i id="progressBar"></i></div>
+        <p class="instruction">Type this phrase naturally, then move your cursor to the confirm button and submit.</p>
+        <blockquote id="phrase">Rhythm protects what passwords cannot.</blockquote>
+        <label>Calibration phrase<input id="enrollInput" autocomplete="off" spellcheck="false" placeholder="Start typing the phrase above" /></label>
+        <div class="enroll-actions"><span id="enrollHint">We record timing only, never the text.</span><button id="enrollNext" class="primary" disabled>Confirm pass <span>→</span></button></div>
+      </section>
+
+      <section id="login" class="hidden layout">
+        <form id="loginForm" class="panel login-card">
+          <span class="eyebrow">LIVE AUTH GATE</span><h2>Welcome back</h2><p>Enter the demo credentials with your natural rhythm.</p>
+          <label>Email<input id="email" type="email" value="demo@bioprint.local" autocomplete="username" /></label>
+          <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="Enter your password" /></label>
+          <button id="loginButton" class="primary" type="submit">Authenticate <span>→</span></button>
+          <button id="botSimulator" class="secondary" type="button">Run bot script simulator</button>
+          <small>Demo password is accepted only after behavioral verification.</small>
+        </form>
+        <section class="panel dashboard">
+          <div class="section-head"><div><span class="eyebrow">SECURITY OPERATIONS</span><h2>Live decision</h2></div><span id="statusBadge" class="status neutral">AWAITING SIGNALS</span></div>
+          <div class="score-row"><div id="gauge" class="gauge" style="--score:0"><div><b id="score">--</b><small>CONFIDENCE</small></div></div><div id="decisionText" class="decision"><b>Ready to authenticate</b><p>BioPrint will compare your live behavior to the local profile.</p></div></div>
+          <div class="metrics"><h3>Signal breakdown</h3><div id="metricList" class="metric-list"><p class="empty">Enroll and authenticate to see your signal analysis.</p></div></div>
+          <div class="event-log"><h3>Explainability log</h3><ul id="explainLog"><li>Profile evaluation occurs locally. No behavioral data leaves this browser.</li></ul></div>
+        </section>
+      </section>
+    </main>
+    <footer>BioPrint demo · On-device processing · <button id="resetProfile" class="link">Reset profile</button></footer>
+  </div>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

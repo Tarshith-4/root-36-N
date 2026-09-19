@@ -1,0 +1,1 @@
+{"manifest_version":3,"name":"BioPrint Behavioral Auth Demo","version":"1.0.0","description":"On-device behavioral biometric login demonstration.","action":{"default_title":"BioPrint","default_popup":"index.html"},"permissions":["storage"]}
