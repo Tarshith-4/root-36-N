@@ -17,7 +17,12 @@ export class EnrollmentFlow {
     this.progress.style.width = `${this.pass / PASSES * 100}%`;
     this.tracker?.stop();
     this.tracker = new BehaviorTracker({ inputs: [this.input], motionTarget: document, submitTarget: this.next }).start();
-    setTimeout(() => this.input.focus(), 40);
+    // No auto-focus: the user must physically click into the field, just
+    // like they do moving into the password field at login. Auto-focusing
+    // via JS here previously meant enrollment mouse signals were captured
+    // from an idle/reading mouse while login mouse signals were captured
+    // from an active click-to-focus motion — an apples-to-oranges mismatch
+    // baked into the profile.
   }
   capture() {
     const data = this.tracker.getFeatureVector(); this.tracker.stop();

@@ -9,7 +9,33 @@ const FEATURES = [
 
 const EPS = 1e-6;
 const REGULARIZATION = 0.05;
-const ACCEPT_THRESHOLD = 70;
+const ACCEPT_THRESHOLD = 42;
+
+// Minimum standard deviation floors per feature. Five back-to-back enrollment
+// passes typed in a single sitting produce an artificially tight covariance
+// estimate. These floors encode realistic session-to-session drift so a
+// single low-variance enrollment dimension cannot dominate the Mahalanobis
+// distance and reject a genuine user on natural variation alone. Each floor
+// is the larger of an absolute minimum (for near-zero-mean features like
+// focusBlurDelay) and a percentage of the feature's own enrolled magnitude,
+// since features differ wildly in scale (e.g. mouseCurvature ~1-20 vs
+// meanFlightTime ~100-400ms). See TECHNICAL_REPORT.md, "Small-sample
+// covariance" for the rationale.
+const REL_FLOOR_PCT = 0.18;
+const ABS_FLOOR_STD = {
+  meanDwellTime: 20,
+  meanFlightTime: 25,
+  mouseCurvature: 2.5,
+  mouseMaxVelocity: 2.5,
+  focusBlurDelay: 35,
+  clickHoldDuration: 20
+};
+// Pointer-based features get a wider relative floor than timing features:
+// login always involves moving between two fields (email -> password) while
+// enrollment involves a single click into one field, so some baseline
+// travel-distance/velocity gap between the two contexts is expected and
+// should not by itself fail a genuine user.
+const REL_FLOOR_OVERRIDE = { mouseCurvature: 0.5, mouseMaxVelocity: 0.6 };
 
 const finite = n => Number.isFinite(n) ? n : 0;
 const mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0;
@@ -30,8 +56,12 @@ function covarianceMatrix(samples) {
 function regularize(covariance, means) {
   return covariance.map((row, i) => row.map((v, j) => {
     if (i !== j) return v;
-    const scale = Math.max(Math.abs(v), 1, (Math.abs(means[FEATURES[i]]) * 0.05) ** 2);
-    return finite(v) + REGULARIZATION * scale + EPS;
+    const key = FEATURES[i];
+    const pct = REL_FLOOR_OVERRIDE[key] ?? REL_FLOOR_PCT;
+    const relStd = pct * Math.abs(means[key]);
+    const floor = Math.max(ABS_FLOOR_STD[key] ?? 1, relStd) ** 2;
+    const scale = Math.max(Math.abs(v), 1, (Math.abs(means[key]) * 0.05) ** 2);
+    return Math.max(finite(v) + REGULARIZATION * scale, floor) + EPS;
   }));
 }
 

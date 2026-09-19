@@ -71,7 +71,7 @@ export class BehaviorTracker {
     this.points.push(p);
   }
 
-  onFocus(e) { this.mark(e); const t = performance.now(); if (this.lastFocus !== null) this.focusTimes.push(t - this.lastFocus); this.lastFocus = t; }
+  onFocus(e) { this.mark(e); const t = performance.now(); if (this.lastFocus !== null) this.focusTimes.push(t - this.lastFocus); this.lastFocus = t; this.lastUp = null; }
   onBlur(e) { this.mark(e); this.lastFocus = performance.now(); }
   onPointerDown(e) { this.mark(e); this.pointerDown = performance.now(); }
   onPointerUp(e) { this.mark(e); if (this.pointerDown !== null) this.holds.push(performance.now() - this.pointerDown); this.pointerDown = null; }
