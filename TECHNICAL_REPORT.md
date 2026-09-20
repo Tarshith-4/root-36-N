@@ -10,12 +10,25 @@ The current implementation uses a regularized **Mahalanobis distance** rather th
 
 The six-dimensional fingerprint is:
 
-1. Mean key dwell time
-2. Mean key flight time
-3. Mouse/pointer path curvature
-4. Maximum pointer velocity
-5. Focus-transition delay
-6. Submit-button click/hold duration
+1. **Mean dwell time** — the average duration a key is held down, from keydown to keyup.
+   `dwell = |keydown_time - keyup_time|`, averaged across all keystrokes in the interaction.
+
+2. **Mean flight time** — the average interval between releasing one key and pressing the next.
+   `flight = current_keydown_time - previous_keyup_time`, averaged across consecutive key pairs.
+
+3. **Mouse/pointer path curvature** — how much the pointer's actual movement path deviates from a straight line between its start and end points.
+   `curvature = total_path_length / straight_line_distance`
+   A value near 1 means an almost perfectly straight movement; higher values mean a more winding path. This doubles as an anti-bot signal, since scripted pointer movement is often suspiciously close to 1.
+
+4. **Maximum pointer velocity** — the fastest pointer speed observed during the interaction.
+   `velocity = distance_travelled / elapsed_time`, taking the maximum across all sampled movement segments.
+
+5. **Focus-transition delay** — the time between leaving one input field and focusing the next (e.g. moving from the email field to the password field).
+   `focus_delay = current_field_focus_time - previous_field_blur_time`
+   **This value is 0 in essentially all of our recorded data**, both at enrollment and at login, because our demo only exercises a single password-style field per interaction (the calibration field during enrollment, or the password field during login — the email field is pre-filled and not retyped or refocused). With only one meaningful focus event per attempt, there is no second focus transition to time, so the feature collapses to a constant. We kept it in the feature vector for completeness and because a real multi-field login (e.g. a form requiring the user to actually type into both email and password) would populate it meaningfully; it currently contributes no discriminative signal in this specific demo.
+
+6. **Click/hold duration** — the average duration the pointer button is held down, from pointerdown to pointerup, measured on the submit control.
+   `click_hold = pointerup_time - pointerdown_time`
 
 Pointer Events are used so mouse and touch-capable pointer devices can share the same collection path. Raw characters are not stored; the collector retains aggregate timing and movement statistics.
 
