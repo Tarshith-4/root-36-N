@@ -1,5 +1,7 @@
 # BioPrint: Behavior-Based Login Security
 
+🎥 **Demo video:** https://drive.google.com/file/d/1YO3EP1uAJTSHiJ1AIkRIAk-CDAKxoGDC/view?usp=sharing
+
 BioPrint is a browser-local behavioral authentication gate for the BioPrint hackathon. It learns a user's interaction fingerprint from typing and pointer behavior, then evaluates each login using a regularized **6-dimensional Mahalanobis distance**. A separate anti-automation layer looks for synthetic events, unnaturally constant timing, low timing entropy, repeated timing transitions, and overly linear pointer motion.
 
 ## What changed in v2
@@ -15,7 +17,7 @@ BioPrint is a browser-local behavioral authentication gate for the BioPrint hack
 ## Run the website demo
 
 ```powershell
-cd BioPrint-Hackathon-Project
+cd <this-repo-directory>
 python -m http.server 8080
 ```
 
@@ -92,7 +94,9 @@ The UI includes a small Reliability Lab. Record each **real** attempt with the c
 - FAR = false accepts / impostor attempts
 - FRR = false rejects / genuine attempts
 
-Do not use the enrollment passes themselves as evaluation data. For the hackathon claim, collect at least 10 genuine trials and 10 impostor trials across multiple sessions/users if possible. The repository deliberately does **not** invent FAR/FRR values.
+**Measured results (n=10 genuine, n=10 impostor, single session):** FRR = 10.0%, FAR = 30.0%. Impostor trials were self-administered (the enrolled user deliberately varying their own typing rhythm), which is a harder, more conservative test than an unrelated attacker — see `TECHNICAL_REPORT.md`, Section 8, for full methodology, sample-size caveats, and the debugging story behind the current calibration. Raw per-trial data is in `EVALUATION_RESULTS.csv`.
+
+Do not use the enrollment passes themselves as evaluation data. The repository deliberately does **not** invent FAR/FRR values.
 
 ## Self-test
 
