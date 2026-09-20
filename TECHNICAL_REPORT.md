@@ -33,7 +33,7 @@ For live vector `x`, enrolled mean `μ`, and covariance `Σ`, the Mahalanobis di
 
 The implementation adds a small diagonal regularization term before inversion. This prevents numerical failure when enrollment samples are highly correlated or the sample count is small.
 
-The distance is converted to a 0–100 confidence score. The demonstration acceptance threshold is **70**. The dashboard also exposes the distance, latency, and individual feature deviations so the decision is explainable.
+The distance is converted to a 0–100 confidence score. The demonstration acceptance threshold is **42**. This value, and the covariance-floor constants in Section 4's implementation, were revised from an initial arbitrary starting point (70, with tighter floors) after live testing against the enrolled user's own genuine and self-varied-impostor logins — see the "Debugging note" in Section 8. This is tuning on the same small dataset used for evaluation, not a held-out calibration set, and we disclose it as a limitation rather than presenting the final numbers as independently derived. The dashboard also exposes the distance, latency, and individual feature deviations so the decision is explainable.
 
 ## 5. Bot and replay resistance
 
