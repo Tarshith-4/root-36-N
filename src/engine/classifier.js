@@ -106,23 +106,32 @@ export function detectBot(f) {
   const reasons = [];
   if (!f.isTrustedEvent) reasons.push('Browser reported an untrusted/synthetic interaction event.');
 
-  if (f.flightCount >= 4 && f.flightStdDev < Math.max(1.5, f.meanFlightTime * 0.015)) {
+  // These thresholds intentionally have real margin above genuine human
+  // consistency. A user who has typed the same short password many times
+  // (as happens naturally over repeated logins) becomes genuinely more
+  // consistent, and with only ~10-12 keystrokes per attempt, small-sample
+  // noise alone can occasionally produce a very low measured variance even
+  // for a real person. The bounds below were widened after observing false
+  // positives on real, human-recorded genuine login trials (see
+  // TECHNICAL_REPORT.md, Section 8) and are meant to flag only patterns
+  // clearly beyond plausible human variation, not merely "very consistent."
+  if (f.flightCount >= 4 && f.flightStdDev < Math.max(3, f.meanFlightTime * 0.035)) {
     reasons.push('Keystroke timing is unnaturally constant.');
   }
 
-  if (f.flightCount >= 6 && f.timingEntropy < 0.55) {
+  if (f.flightCount >= 6 && f.timingEntropy < 0.42) {
     reasons.push('Keystroke timing distribution has unusually low entropy.');
   }
 
-  if (f.flightCount >= 6 && f.sequenceNovelty < 0.18) {
+  if (f.flightCount >= 6 && f.sequenceNovelty < 0.12) {
     reasons.push('Typing sequence is dominated by repeated timing transitions.');
   }
 
-  if (f.mousePointCount >= 8 && f.mouseCurvature > 0 && f.mouseCurvature < 1.003) {
+  if (f.mousePointCount >= 8 && f.mouseCurvature > 0 && f.mouseCurvature < 1.0006) {
     reasons.push('Pointer trajectory is near-perfectly linear.');
   }
 
-  if (f.mousePointCount >= 8 && f.mouseVelocityStd < 0.05 && f.mouseMaxVelocity > 0) {
+  if (f.mousePointCount >= 8 && f.mouseVelocityStd < 0.02 && f.mouseMaxVelocity > 0) {
     reasons.push('Pointer velocity is suspiciously uniform.');
   }
 
