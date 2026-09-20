@@ -115,11 +115,11 @@ export function detectBot(f) {
   // positives on real, human-recorded genuine login trials (see
   // TECHNICAL_REPORT.md, Section 8) and are meant to flag only patterns
   // clearly beyond plausible human variation, not merely "very consistent."
-  if (f.flightCount >= 4 && f.flightStdDev < Math.max(3, f.meanFlightTime * 0.035)) {
+  if (f.flightCount >= 4 && f.flightStdDev < Math.max(8, f.meanFlightTime * 0.08)) {
     reasons.push('Keystroke timing is unnaturally constant.');
   }
 
-  if (f.flightCount >= 6 && f.timingEntropy < 0.42) {
+  if (f.flightCount >= 8 && f.timingEntropy < 0.3) {
     reasons.push('Keystroke timing distribution has unusually low entropy.');
   }
 

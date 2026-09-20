@@ -9,7 +9,33 @@ const FEATURES = [
 
 const EPS = 1e-6;
 const REGULARIZATION = 0.05;
-const ACCEPT_THRESHOLD = 70;
+const ACCEPT_THRESHOLD = 42;
+
+// Minimum standard deviation floors per feature. Five back-to-back enrollment
+// passes typed in a single sitting produce an artificially tight covariance
+// estimate. These floors encode realistic session-to-session drift so a
+// single low-variance enrollment dimension cannot dominate the Mahalanobis
+// distance and reject a genuine user on natural variation alone. Each floor
+// is the larger of an absolute minimum (for near-zero-mean features like
+// focusBlurDelay) and a percentage of the feature's own enrolled magnitude,
+// since features differ wildly in scale (e.g. mouseCurvature ~1-20 vs
+// meanFlightTime ~100-400ms). See TECHNICAL_REPORT.md, "Small-sample
+// covariance" for the rationale.
+const REL_FLOOR_PCT = 0.18;
+const ABS_FLOOR_STD = {
+  meanDwellTime: 20,
+  meanFlightTime: 25,
+  mouseCurvature: 2.5,
+  mouseMaxVelocity: 2.5,
+  focusBlurDelay: 35,
+  clickHoldDuration: 20
+};
+// Pointer-based features get a wider relative floor than timing features:
+// login always involves moving between two fields (email -> password) while
+// enrollment involves a single click into one field, so some baseline
+// travel-distance/velocity gap between the two contexts is expected and
+// should not by itself fail a genuine user.
+const REL_FLOOR_OVERRIDE = { mouseCurvature: 0.5, mouseMaxVelocity: 0.6 };
 
 const finite = n => Number.isFinite(n) ? n : 0;
 const mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0;
@@ -30,8 +56,12 @@ function covarianceMatrix(samples) {
 function regularize(covariance, means) {
   return covariance.map((row, i) => row.map((v, j) => {
     if (i !== j) return v;
-    const scale = Math.max(Math.abs(v), 1, (Math.abs(means[FEATURES[i]]) * 0.05) ** 2);
-    return finite(v) + REGULARIZATION * scale + EPS;
+    const key = FEATURES[i];
+    const pct = REL_FLOOR_OVERRIDE[key] ?? REL_FLOOR_PCT;
+    const relStd = pct * Math.abs(means[key]);
+    const floor = Math.max(ABS_FLOOR_STD[key] ?? 1, relStd) ** 2;
+    const scale = Math.max(Math.abs(v), 1, (Math.abs(means[key]) * 0.05) ** 2);
+    return Math.max(finite(v) + REGULARIZATION * scale, floor) + EPS;
   }));
 }
 
@@ -76,23 +106,32 @@ export function detectBot(f) {
   const reasons = [];
   if (!f.isTrustedEvent) reasons.push('Browser reported an untrusted/synthetic interaction event.');
 
-  if (f.flightCount >= 4 && f.flightStdDev < Math.max(1.5, f.meanFlightTime * 0.015)) {
+  // These thresholds intentionally have real margin above genuine human
+  // consistency. A user who has typed the same short password many times
+  // (as happens naturally over repeated logins) becomes genuinely more
+  // consistent, and with only ~10-12 keystrokes per attempt, small-sample
+  // noise alone can occasionally produce a very low measured variance even
+  // for a real person. The bounds below were widened after observing false
+  // positives on real, human-recorded genuine login trials (see
+  // TECHNICAL_REPORT.md, Section 8) and are meant to flag only patterns
+  // clearly beyond plausible human variation, not merely "very consistent."
+  if (f.flightCount >= 4 && f.flightStdDev < Math.max(8, f.meanFlightTime * 0.08)) {
     reasons.push('Keystroke timing is unnaturally constant.');
   }
 
-  if (f.flightCount >= 6 && f.timingEntropy < 0.55) {
+  if (f.flightCount >= 8 && f.timingEntropy < 0.3) {
     reasons.push('Keystroke timing distribution has unusually low entropy.');
   }
 
-  if (f.flightCount >= 6 && f.sequenceNovelty < 0.18) {
+  if (f.flightCount >= 6 && f.sequenceNovelty < 0.12) {
     reasons.push('Typing sequence is dominated by repeated timing transitions.');
   }
 
-  if (f.mousePointCount >= 8 && f.mouseCurvature > 0 && f.mouseCurvature < 1.003) {
+  if (f.mousePointCount >= 8 && f.mouseCurvature > 0 && f.mouseCurvature < 1.0006) {
     reasons.push('Pointer trajectory is near-perfectly linear.');
   }
 
-  if (f.mousePointCount >= 8 && f.mouseVelocityStd < 0.05 && f.mouseMaxVelocity > 0) {
+  if (f.mousePointCount >= 8 && f.mouseVelocityStd < 0.02 && f.mouseMaxVelocity > 0) {
     reasons.push('Pointer velocity is suspiciously uniform.');
   }
 
