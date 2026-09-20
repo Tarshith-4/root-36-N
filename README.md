@@ -33,11 +33,15 @@ The website stores its profile locally under `localStorage` key `bioprint_profil
 
 ## Run the Chrome extension
 
+**Option A — from this repo:** select the `extension/` directory directly in step 5 below.
+
+**Option B — standalone package:** download [`BioPrint-Extension.zip`](./BioPrint-Extension.zip) from the repo root and unzip it; this contains only the extension files (no need to clone the full repository) and can be loaded directly as described below.
+
 1. Start the local server above.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Click **Load unpacked**.
-5. Select the `extension/` directory.
+5. Select the `extension/` directory (Option A) or your unzipped `BioPrint-Extension` folder (Option B).
 6. Open the BioPrint extension popup and enroll the profile.
 7. Visit `http://localhost:8080`.
 
