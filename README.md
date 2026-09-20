@@ -62,7 +62,11 @@ For a live vector `x`, enrolled mean `μ`, and regularized covariance `Σ`, BioP
 
 `D_M(x) = sqrt((x-μ)^T Σ^-1 (x-μ))`
 
-The score is a bounded monotonic transform of the distance. A score of **70 or above** is the demo acceptance threshold. Covariance diagonal loading is used to keep the inverse stable with a small calibration set.
+The score is a bounded monotonic transform of the distance. A score of **42 or above** is the demo acceptance threshold — see the "Threshold calibration" note below for why this differs from an initial, uncalibrated value. Covariance diagonal loading is used to keep the inverse stable with a small calibration set.
+
+### Threshold calibration
+
+The accept threshold started at an arbitrary 70 and the initial covariance-floor values were similarly arbitrary guesses. Both were revised downward/loosened after live testing against the enrolled user's own genuine and self-varied-impostor logins (see `TECHNICAL_REPORT.md`, Section 8, and the "Debugging note" there). This is tuning on the same small dataset used for evaluation, not a held-out calibration set, and we say so explicitly rather than presenting the final numbers as if they were derived independently. With only one enrolled user and ~20 total trials, a production system would need a proper train/validation split across many users before these thresholds could be trusted.
 
 ## Anti-bot layer
 

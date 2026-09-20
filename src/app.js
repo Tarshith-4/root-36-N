@@ -1,5 +1,5 @@
 import { BehaviorTracker } from './collector/tracker.js';
-import { calculateConfidenceScore, updateAdaptiveProfile } from './engine/classifier.js';
+import { calculateConfidenceScore, updateAdaptiveProfile, detectBot } from './engine/classifier.js';
 import { EnrollmentFlow } from './ui/enrollment.js';
 import { Dashboard } from './ui/dashboard.js';
 
@@ -59,7 +59,28 @@ let tracker; let lastResult = null;
 function enterLogin(){show('login');tracker?.stop();tracker=liveTracker();renderTrials()}
 if(profile()) enterLogin(); else show('welcome'); setPill(); renderTrials();
 $('#loginForm').addEventListener('submit',e=>{e.preventDefault();const p=profile();const live=tracker.getFeatureVector();const result=calculateConfidenceScore(live,p);tracker.stop();lastResult=result;dashboard.render(result);if(result.authenticated&&!result.bot)setProfile(updateAdaptiveProfile(p,live));setTimeout(()=>{tracker=liveTracker();setPill()},100)});
-$('#botSimulator').onclick=()=>{tracker?.stop();dashboard.render({score:0,authenticated:false,bot:true,reason:'Synthetic event pattern injected by the demo simulator.',signals:[],distance:Infinity,latencyMs:0});tracker=liveTracker()};
+$('#botSimulator').onclick=()=>{
+  tracker?.stop();
+  // Build a genuinely synthetic feature vector (the shape a scripted/
+  // automated interaction would produce: near-zero timing variance, a
+  // perfectly linear pointer path, and an untrusted event flag) and run it
+  // through the real detectBot() used for live logins — this is not a
+  // hardcoded "BOT DETECTED" result.
+  const syntheticFeatures = {
+    meanDwellTime: 95, meanFlightTime: 110, mouseCurvature: 1.0001, mouseMaxVelocity: 2.0,
+    focusBlurDelay: 0, clickHoldDuration: 95,
+    isTrustedEvent: false, flightStdDev: 0.15, flightCount: 12,
+    timingEntropy: 0.08, sequenceNovelty: 0.04,
+    mousePointCount: 12, mouseVelocityStd: 0.01
+  };
+  const result = detectBot(syntheticFeatures);
+  dashboard.render({
+    score: 0, authenticated: false, bot: result.isBot,
+    reason: result.isBot ? result.reason : 'Synthetic pattern did not trigger the bot detector.',
+    signals: [], distance: Infinity, latencyMs: 0
+  });
+  tracker = liveTracker();
+};
 $('#recordGenuine').onclick=()=>{const p=profile();if(!p||!lastResult)return;const r=lastResult;const t=trials();t.genuine++;if(!r.authenticated)t.falseRejects++;saveTrials(t);appendLog({label:'genuine',operator:'enrolled_user',userId:'demo-user',session:'session-1',decision:r.authenticated?'GRANTED':'DENIED',score:r.score,distance:Number.isFinite(r.distance)?r.distance.toFixed(3):r.distance,bot:r.bot,latencyMs:r.latencyMs?.toFixed?.(2)??r.latencyMs,notes:''})};
 $('#recordImpostor').onclick=()=>{const p=profile();if(!p||!lastResult)return;const r=lastResult;const t=trials();t.impostor++;if(r.authenticated&&!r.bot)t.falseAccepts++;saveTrials(t);appendLog({label:'impostor',operator:'enrolled_user_self_varied',userId:'demo-user',session:'session-1',decision:r.authenticated?'GRANTED':'DENIED',score:r.score,distance:Number.isFinite(r.distance)?r.distance.toFixed(3):r.distance,bot:r.bot,latencyMs:r.latencyMs?.toFixed?.(2)??r.latencyMs,notes:''})};
 $('#clearTrials').onclick=()=>{saveTrials({genuine:0,impostor:0,falseAccepts:0,falseRejects:0});localStorage.removeItem(logKey)};

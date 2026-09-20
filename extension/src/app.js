@@ -1,5 +1,5 @@
 import { BehaviorTracker } from './collector/tracker.js';
-import { calculateConfidenceScore, updateAdaptiveProfile } from './engine/classifier.js';
+import { calculateConfidenceScore, updateAdaptiveProfile, detectBot } from './engine/classifier.js';
 import { EnrollmentFlow } from './ui/enrollment.js';
 import { Dashboard } from './ui/dashboard.js';
 
@@ -20,7 +20,23 @@ let tracker; let lastResult = null;
 async function enterLogin(){show('login');tracker?.stop();tracker=liveTracker();await renderTrials()}
 (async()=>{if(await profile()) await enterLogin(); else show('welcome');await setPill();await renderTrials()})();
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const p=await profile();const live=tracker.getFeatureVector();const result=calculateConfidenceScore(live,p);tracker.stop();lastResult=result;dashboard.render(result);if(result.authenticated&&!result.bot)await setProfile(updateAdaptiveProfile(p,live));setTimeout(()=>{tracker=liveTracker();setPill()},100)});
-$('#botSimulator').onclick=()=>{tracker?.stop();dashboard.render({score:0,authenticated:false,bot:true,reason:'Synthetic event pattern injected by the demo simulator.',signals:[],distance:Infinity,latencyMs:0});tracker=liveTracker()};
+$('#botSimulator').onclick=()=>{
+  tracker?.stop();
+  const syntheticFeatures = {
+    meanDwellTime: 95, meanFlightTime: 110, mouseCurvature: 1.0001, mouseMaxVelocity: 2.0,
+    focusBlurDelay: 0, clickHoldDuration: 95,
+    isTrustedEvent: false, flightStdDev: 0.15, flightCount: 12,
+    timingEntropy: 0.08, sequenceNovelty: 0.04,
+    mousePointCount: 12, mouseVelocityStd: 0.01
+  };
+  const result = detectBot(syntheticFeatures);
+  dashboard.render({
+    score: 0, authenticated: false, bot: result.isBot,
+    reason: result.isBot ? result.reason : 'Synthetic pattern did not trigger the bot detector.',
+    signals: [], distance: Infinity, latencyMs: 0
+  });
+  tracker = liveTracker();
+};
 // The Reliability Lab UI (record genuine/impostor trials) lives only on the
 // main demo page, not in this extension popup, so those buttons don't exist
 // here. Guard the wiring instead of assuming the elements are present.
